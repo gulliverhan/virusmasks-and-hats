@@ -1,12 +1,15 @@
 # Virusmasks and Hats
 ## Update
 Project updated for Python v3 and also additional masks added to allow you to easily add surgical masks to images and videos to protect them from Corona Virus COVID-19!
+Also applies pose detection to correctly apply centre, left or right looking masks
 
 ```
 $ python3 apply_mask.py -i examples/groups/group1.jpg -m examples/virusmasks -o examples/masked/group_w_virusmasks.jpg 
 ```
 
 ![](https://raw.githubusercontent.com/gulliverhan/virusmasks-and-hats/master/imgs/group_w_virusmasks.jpg)
+
+
 
 ## Intro
 This is a toolkit for making silly (or not silly) masks and hats and put them on people's faces. All digitally. There are two scripts, `create_mask.py` and `apply_mask.py`. 

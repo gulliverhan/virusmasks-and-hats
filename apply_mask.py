@@ -2,6 +2,7 @@ import random, os, sys, subprocess, time, shutil
 import cv2
 import dlib
 import numpy as np
+import pose_detection
 
 # from mask_generator import make_mask
 
@@ -10,9 +11,19 @@ detector = dlib.get_frontal_face_detector()
 PREDICTOR_PATH = "shape_predictor_68_face_landmarks.dat"
 predictor = dlib.shape_predictor(PREDICTOR_PATH)
 
+def get_pose_options(masks,pose):
+    newDict = dict()
+    # Iterate over all the items in dictionary and filter items which has even keys
+    for (key, value) in masks.items():
+        # Check if key is even then add pair to new dictionary
+        if(key.find(pose) == 0):
+            newDict[key] = value
+    
+    #print('Filtered Dictionary : ')
+    #print(newDict)
+    return newDict
 
-
-def get_random_mask(masks, not_used, unique):
+def get_random_mask(masks, not_used, unique, pose=None):
     # someone wants to explain random seed to me?
     # tried various weird things like random.seed(int(time.time()))
     # here without real success
@@ -20,8 +31,14 @@ def get_random_mask(masks, not_used, unique):
     # the first mask will often (?) be the same
     # or is it just me ????????
     chosen = ""
-    names = [m for m in masks]
-    not_used_names = [m for m in not_used]
+    if(pose==None):
+        names = [m for m in masks]
+        not_used_names = [m for m in not_used]
+    else:
+        masks_filtered = get_pose_options(masks,pose)
+        not_used_filtered = get_pose_options(not_used,pose)
+        names = [m for m in masks_filtered]
+        not_used_names = [m for m in not_used_filtered]
     if unique == True:
         if len(not_used_names) == 0:
             front = None
@@ -124,13 +141,13 @@ def assert_dir(dir_path):
     print( "[+] Created " + out_dir + ". and will save output to that directory" )
     return out_dir
 
-def apply_masks(input_paths, masks, output_paths, apply_unique_masks, is_video):
+def apply_masks(input_paths, masks, output_paths, apply_unique_masks, is_video,use_pose_detection):
             
     print ("[+] Applying mask(s)" )
     for j, path in enumerate(input_paths, 0):
         print( "\n\t[+] Opening", path)
         img = get_img(path)
-    
+        size = img.shape
         # find all faces
         faces = get_rects(img)
         if len(faces) == 0:
@@ -154,18 +171,28 @@ def apply_masks(input_paths, masks, output_paths, apply_unique_masks, is_video):
         masks_not_used = masks.copy()
         for i, face in enumerate(faces, 0):
             print ("\t\t[face " + str(i+1) + "]"), 
-            # pick a random mask, check if unique mask was selected 
-            mask_name, mask_front, mask_back, masks_not_used = get_random_mask(masks, masks_not_used, apply_unique_masks)
-            if mask_name == None:
-                print ("already used all masks once (you specified '-u' unique mask use)")
-                continue
+            #get landmarks
+            img = remove_alpha_channel(img)
+            face_ldmks = get_landmarks(img, face)
+            if(use_pose_detection):
+                pose = pose_detection.get_pose(size, face_ldmks)
+                print(pose)
+                mask_name, mask_front, mask_back, masks_not_used = get_random_mask(masks, masks_not_used, apply_unique_masks, pose)
+                if mask_name == None:
+                    print ("already used all masks once (you specified '-u' unique mask use)")
+                    continue
+            else:
+                # pick a random mask, check if unique mask was selected 
+                mask_name, mask_front, mask_back, masks_not_used = get_random_mask(masks, masks_not_used, apply_unique_masks)
+                if mask_name == None:
+                    print ("already used all masks once (you specified '-u' unique mask use)")
+                    continue
             
             print ("picked mask", mask_name)
             mask_face = get_rects(mask_back)[0]
 
-            #get landmarks
-            img = remove_alpha_channel(img)
-            face_ldmks = get_landmarks(img, face)
+
+
             mask_ldmks = get_landmarks(mask_back, mask_face)
 
             # # align mask to face
@@ -231,9 +258,10 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--mask", required=True, type=str, help="path to folder of mask files or indivual mask file (front or back)")
     parser.add_argument("-u", "--unique", action="store_true", help="use each mask just once per image/frame. OFF by default")
     parser.add_argument("-o", "--output", required=True, type=str, help="path to directory or specify filename with .jpg/.png/.mp4/.mov extension.")
+    parser.add_argument("-p", "--pose", action="store_true", help="use pose detection to fit masks left/right. OFF by default")
     args = parser.parse_args()
 
     from tools import validate_inputs
-    input_paths, masks, output_paths, apply_unique_masks, is_video =  validate_inputs.run(args)
+    input_paths, masks, output_paths, apply_unique_masks, is_video, use_pose_detection =  validate_inputs.run(args)
     
-    apply_masks(input_paths, masks, output_paths, apply_unique_masks, is_video)
+    apply_masks(input_paths, masks, output_paths, apply_unique_masks, is_video, use_pose_detection)

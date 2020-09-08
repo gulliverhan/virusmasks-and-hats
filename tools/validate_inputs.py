@@ -238,4 +238,4 @@ def run(args):
             out_p = os.path.join(out_arg, f_out)
             output_paths.append(out_p)
     print ("[+] Validating output paths: Done.")
-    return input_paths, masks, output_paths, args.unique, is_video
+    return input_paths, masks, output_paths, args.unique, is_video, args.pose
